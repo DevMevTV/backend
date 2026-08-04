@@ -234,19 +234,22 @@ export default async function (
     const fromTable = transaction.fromType == "world" ? worlds : users;
     const toTable = transaction.toType == "world" ? worlds : users;
     try {
-      await db
-        .update(fromTable)
-        .set({ balance: fromBalance })
-        .where(eq(fromTable.uuid, from.uuid));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(fromTable)
+          .set({ balance: fromBalance })
+          .where(eq(fromTable.uuid, from.uuid));
 
-      await db
-        .update(toTable)
-        .set({ balance: toBalance })
-        .where(eq(toTable.uuid, to.uuid));
-      await db
-        .update(transactions)
-        .set({ status: "approved" })
-        .where(eq(transactions.id, transaction.id));
+        await tx
+          .update(toTable)
+          .set({ balance: toBalance })
+          .where(eq(toTable.uuid, to.uuid));
+
+        await tx
+          .update(transactions)
+          .set({ status: "approved" })
+          .where(eq(transactions.id, transaction.id));
+      });
       return reply.status(201).send({ success: true, id: transaction.id });
     } catch (err) {
       if (err instanceof DrizzleQueryError) {
