@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { db } from "./index.js";
-import { jobs, users, worlds } from "./db/schema.js";
+import { jobs, transactions, users, worlds } from "./db/schema.js";
 import { eq } from "drizzle-orm";
 
 export const generateToken = () => randomBytes(32).toString("hex");
@@ -26,9 +26,23 @@ export async function getUserFromUuid(uuid: string) {
   return user;
 }
 
+export async function getWorldFromUuid(uuid: string) {
+  const world = (
+    await db.select().from(worlds).where(eq(worlds.uuid, uuid)).limit(1)
+  )[0];
+  return world;
+}
+
 export async function getJobFromId(id: string) {
-  const user = (
+  const job = (
     await db.select().from(jobs).where(eq(jobs.id, id)).limit(1)
   )[0];
-  return user;
+  return job;
+}
+
+export async function getTransactionFromId(id: number) {
+  const transaction = (
+    await db.select().from(transactions).where(eq(transactions.id, id)).limit(1)
+  )[0];
+  return transaction;
 }
