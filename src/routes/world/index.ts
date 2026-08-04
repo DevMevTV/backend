@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from "fastify";
 import { db } from "../../index.js";
 import { worlds } from "../../db/schema.js";
 import { DrizzleError, DrizzleQueryError, eq } from "drizzle-orm";
-import { generateToken } from "../../util.js";
+import { generateToken, getUserFromToken } from "../../util.js";
 import { DatabaseError } from "pg";
 
 type CreateWorldBody = {
@@ -20,6 +20,10 @@ type CreateWorldErorResponse = {
   error: string;
 };
 
+type CreateWorldHeaders = {
+  Authorization: `Bearer ${string}`;
+};
+
 export default async function (
   fastify: FastifyInstance,
   opts: FastifyPluginOptions,
@@ -27,7 +31,16 @@ export default async function (
   fastify.post<{
     Body: CreateWorldBody;
     Reply: CreateWorldResponse | CreateWorldErorResponse;
+    Headers: CreateWorldHeaders;
   }>("/create", async (request, reply) => {
+    const user = await getUserFromToken(
+      request.headers.authorization.substring(7),
+    );
+    if (!user) {
+      return reply
+        .status(400)
+        .send({ success: false, error: "InvalidUser: Wrong token" });
+    }
     const { uuid, name } = request.body;
     const token = generateToken();
     try {
@@ -35,6 +48,7 @@ export default async function (
         uuid: uuid,
         name: name,
         token: token,
+        ownerUuid: user.uuid,
       });
     } catch (err) {
       if (err instanceof DrizzleQueryError) {
