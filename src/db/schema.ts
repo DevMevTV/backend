@@ -25,6 +25,7 @@ export const jobType = pgEnum("type", ["buy", "sell"]);
 
 export const jobs = pgTable("jobs", {
   id: varchar().primaryKey(),
+  name: varchar().notNull(),
   token: varchar().notNull().unique(),
   type: jobType().notNull(),
   amount: integer().notNull(),

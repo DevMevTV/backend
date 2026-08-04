@@ -5,8 +5,8 @@ import { eq } from "drizzle-orm";
 
 export const generateToken = () => randomBytes(32).toString("hex");
 
-export async function getWorldFromUuid(uuid: string) {
-  const world = (await db.select().from(worlds).where(eq(worlds.uuid, uuid)).limit(1))[0]
+export async function getWorldFromToken(token: string) {
+  const world = (await db.select().from(worlds).where(eq(worlds.token, token)).limit(1))[0]
   return world;
 }
 

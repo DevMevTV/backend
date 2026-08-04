@@ -39,7 +39,7 @@ export default async function (
     if (!user) {
       return reply
         .status(400)
-        .send({ success: false, error: "InvalidUser: Wrong token" });
+        .send({ success: false, error: "User not found" });
     }
     const { uuid, name } = request.body;
     const token = generateToken();
