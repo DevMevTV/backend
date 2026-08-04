@@ -48,6 +48,26 @@ type VerifyTransactionErrorResponse = {
   error: string;
 };
 
+type PollTransactionParams = {
+  id: number;
+};
+
+type PollTransactionQueryString = {
+  job: string;
+  job_token: string;
+  world_token: string;
+};
+
+type PollTransactionResponse = {
+  success: true;
+  status: "approved" | "rejected" | "waiting";
+};
+
+type PollTransactionErrorResponse = {
+  success: false;
+  error: string;
+};
+
 export default async function (
   fastify: FastifyInstance,
   opts: FastifyPluginOptions,
@@ -167,6 +187,16 @@ export default async function (
       });
     }
 
+    const user = await getUserFromToken(
+      request.headers.authorization.substring(7),
+    );
+
+    if (!user) {
+      return reply
+        .status(400)
+        .send({ success: false, error: `User not found` });
+    }
+
     let from =
       transaction.fromType == "world"
         ? await getWorldFromUuid(transaction.fromId)
@@ -203,15 +233,6 @@ export default async function (
       return reply
         .status(400)
         .send({ success: false, error: `Job does not belong to world` });
-    }
-    const user = await getUserFromToken(
-      request.headers.authorization.substring(7),
-    );
-
-    if (!user) {
-      return reply
-        .status(400)
-        .send({ success: false, error: `User not found` });
     }
 
     const userUuid = transaction.fromType == "user" ? from.uuid : to.uuid;
@@ -261,5 +282,55 @@ export default async function (
         .status(500)
         .send({ success: false, error: `Unknown server error` });
     }
+  });
+
+  fastify.get<{
+    Params: PollTransactionParams;
+    Querystring: PollTransactionQueryString;
+    Reply: PollTransactionResponse | PollTransactionErrorResponse;
+  }>("/poll/:id", async (request, reply) => {
+    const { job: jobId, job_token, world_token } = request.query;
+    const { id } = request.params;
+    const world = await getWorldFromToken(world_token);
+    const job = await getJobFromId(jobId);
+    if (!world) {
+      return reply
+        .status(400)
+        .send({ success: false, error: `World not found` });
+    }
+    if (!world.verified) {
+      return reply
+        .status(400)
+        .send({ success: false, error: `World not verified` });
+    }
+    if (!job) {
+      return reply.status(400).send({ success: false, error: `Job not found` });
+    }
+    if (job.token != job_token) {
+      return reply
+        .status(400)
+        .send({ success: false, error: `Invalid token for job` });
+    }
+    if (job.world != world.uuid) {
+      return reply
+        .status(400)
+        .send({ success: false, error: `Job does not belong to world` });
+    }
+
+    const transaction = await getTransactionFromId(id);
+    if (!transaction) {
+      return reply
+        .status(400)
+        .send({ success: false, error: `Transaction not found` });
+    }
+    if (transaction.job != job.id) {
+      return reply
+        .status(400)
+        .send({ success: false, error: `Transaction doesn't belong to job` });
+    }
+
+    return reply
+      .status(200)
+      .send({ success: true, status: transaction.status });
   });
 }
