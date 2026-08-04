@@ -48,7 +48,7 @@ export default async function (
         uuid: uuid,
         name: name,
         token: token,
-        ownerUuid: user.uuid,
+        owner: user.uuid,
       });
     } catch (err) {
       if (err instanceof DrizzleQueryError) {

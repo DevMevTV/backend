@@ -55,7 +55,7 @@ export default async function (
         .status(400)
         .send({ success: false, error: `World not found` });
     }
-    if (world.ownerUuid != user.uuid) {
+    if (world.owner != user.uuid) {
       return reply
         .status(400)
         .send({ success: false, error: `User does not own world` });
@@ -73,7 +73,7 @@ export default async function (
         token: token,
         type: type,
         amount: amount,
-        worldUuid: world.uuid,
+        world: world.uuid,
       });
     } catch (err) {
       if (err instanceof DrizzleQueryError) {
