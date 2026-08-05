@@ -1,9 +1,10 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify";
 import { db } from "../../index.js";
-import { jobs, transactions, users, worlds } from "../../db/schema.js";
-import { DrizzleError, DrizzleQueryError, eq } from "drizzle-orm";
+import { transactions, users, worlds } from "../../db/schema.js";
+import { DrizzleQueryError, eq } from "drizzle-orm";
 import {
-  generateToken,
+  AuthorizationHeaders,
+  ErrorResponse,
   getJobFromId,
   getTransactionFromId,
   getUserFromToken,
@@ -25,27 +26,13 @@ type CreateTransactionResponse = {
   id: number;
 };
 
-type CreateTransactionErrorResponse = {
-  success: false;
-  error: string;
-};
-
 type VerifyTransactionParams = {
   id: number;
-};
-
-type VerifyTransactionHeaders = {
-  Authorization: `Bearer ${string}`;
 };
 
 type VerifyTransactionResponse = {
   success: true;
   id: number;
-};
-
-type VerifyTransactionErrorResponse = {
-  success: false;
-  error: string;
 };
 
 type PollTransactionParams = {
@@ -63,18 +50,13 @@ type PollTransactionResponse = {
   status: "approved" | "rejected" | "waiting";
 };
 
-type PollTransactionErrorResponse = {
-  success: false;
-  error: string;
-};
-
 export default async function (
   fastify: FastifyInstance,
   opts: FastifyPluginOptions,
 ) {
   fastify.post<{
     Body: CreateTransactionBody;
-    Reply: CreateTransactionResponse | CreateTransactionErrorResponse;
+    Reply: CreateTransactionResponse | ErrorResponse;
   }>("/create", async (request, reply) => {
     const { job: jobId, job_token, world_token, user: userUuid } = request.body;
     const world = await getWorldFromToken(world_token);
@@ -168,8 +150,8 @@ export default async function (
 
   fastify.get<{
     Params: VerifyTransactionParams;
-    Headers: VerifyTransactionHeaders;
-    Reply: VerifyTransactionResponse | VerifyTransactionErrorResponse;
+    Headers: AuthorizationHeaders;
+    Reply: VerifyTransactionResponse | ErrorResponse;
   }>("/verify/:id", async (request, reply) => {
     const { id } = request.params;
     const transaction = await getTransactionFromId(id);
@@ -287,7 +269,7 @@ export default async function (
   fastify.get<{
     Params: PollTransactionParams;
     Querystring: PollTransactionQueryString;
-    Reply: PollTransactionResponse | PollTransactionErrorResponse;
+    Reply: PollTransactionResponse | ErrorResponse;
   }>("/poll/:id", async (request, reply) => {
     const { job: jobId, job_token, world_token } = request.query;
     const { id } = request.params;

@@ -3,11 +3,12 @@ import { db } from "../../index.js";
 import { jobs, worlds } from "../../db/schema.js";
 import { DrizzleError, DrizzleQueryError, eq } from "drizzle-orm";
 import {
+  AuthorizationHeaders,
+  ErrorResponse,
   generateToken,
   getUserFromToken,
   getWorldFromToken,
 } from "../../util.js";
-import { DatabaseError } from "pg";
 
 type CreateJobBody = {
   id: string;
@@ -22,23 +23,14 @@ type CreateJobResponse = {
   token: string;
 };
 
-type CreateJobErrorResponse = {
-  success: false;
-  error: string;
-};
-
-type CreateJobHeaders = {
-  Authorization: `Bearer ${string}`;
-};
-
 export default async function (
   fastify: FastifyInstance,
   opts: FastifyPluginOptions,
 ) {
   fastify.post<{
     Body: CreateJobBody;
-    Reply: CreateJobResponse | CreateJobErrorResponse;
-    Headers: CreateJobHeaders;
+    Reply: CreateJobResponse | ErrorResponse;
+    Headers: AuthorizationHeaders;
   }>("/create", async (request, reply) => {
     const { id, world_token, name, type, amount } = request.body;
     const world = await getWorldFromToken(world_token);

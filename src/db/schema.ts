@@ -3,7 +3,6 @@ import {
   integer,
   pgEnum,
   pgTable,
-  time,
   timestamp,
   uuid,
   varchar,
@@ -14,6 +13,7 @@ export const users = pgTable("users", {
   name: varchar().notNull(),
   token: varchar().notNull().unique(),
   balance: integer().notNull().default(0),
+  admin: boolean().notNull().default(false)
 });
 
 export const worlds = pgTable("worlds", {

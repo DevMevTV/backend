@@ -34,9 +34,7 @@ export async function getWorldFromUuid(uuid: string) {
 }
 
 export async function getJobFromId(id: string) {
-  const job = (
-    await db.select().from(jobs).where(eq(jobs.id, id)).limit(1)
-  )[0];
+  const job = (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
   return job;
 }
 
@@ -45,4 +43,13 @@ export async function getTransactionFromId(id: number) {
     await db.select().from(transactions).where(eq(transactions.id, id)).limit(1)
   )[0];
   return transaction;
+}
+
+export type AuthorizationHeaders = {
+  Authorization: `Bearer ${string}`;
+};
+
+export type ErrorResponse = {
+  success: false;
+  error: string;
 }

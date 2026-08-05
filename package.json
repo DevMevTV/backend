@@ -11,6 +11,7 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "packageManager": "pnpm@11.3.0",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",

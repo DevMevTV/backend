@@ -1,9 +1,15 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify";
 import { db } from "../../index.js";
-import { worlds } from "../../db/schema.js";
-import { DrizzleError, DrizzleQueryError, eq } from "drizzle-orm";
-import { generateToken, getUserFromToken } from "../../util.js";
-import { DatabaseError } from "pg";
+import { jobs, worlds } from "../../db/schema.js";
+import { DrizzleQueryError, eq } from "drizzle-orm";
+import {
+  AuthorizationHeaders,
+  ErrorResponse,
+  generateToken,
+  getUserFromToken,
+  getUserFromUuid,
+  getWorldFromUuid,
+} from "../../util.js";
 
 type CreateWorldBody = {
   uuid: string;
@@ -15,13 +21,42 @@ type CreateWorldResponse = {
   token: string;
 };
 
-type CreateWorldErorResponse = {
-  success: false;
-  error: string;
+type VerifyWorldParams = {
+  uuid: string;
 };
 
-type CreateWorldHeaders = {
-  Authorization: `Bearer ${string}`;
+type VerifyWorldResponse = {
+  success: true;
+  uuid: string;
+};
+
+type GetWorldParams = {
+  uuid: string;
+};
+
+type GetWorldUnauthorizedResponse = {
+  success: true;
+  uuid: string;
+  name: string;
+  balance: number;
+};
+
+type GetWorldResponse = {
+  success: true;
+  uuid: string;
+  name: string;
+  verified: boolean;
+  balance: number;
+  token: string;
+  jobs: Job[];
+};
+
+type Job = {
+  id: string;
+  name: string;
+  token: string;
+  type: "buy" | "sell";
+  amount: number;
 };
 
 export default async function (
@@ -30,8 +65,8 @@ export default async function (
 ) {
   fastify.post<{
     Body: CreateWorldBody;
-    Reply: CreateWorldResponse | CreateWorldErorResponse;
-    Headers: CreateWorldHeaders;
+    Reply: CreateWorldResponse | ErrorResponse;
+    Headers: AuthorizationHeaders;
   }>("/create", async (request, reply) => {
     const user = await getUserFromToken(
       request.headers.authorization.substring(7),
@@ -61,5 +96,101 @@ export default async function (
         .send({ success: false, error: `Unknown server error` });
     }
     return reply.status(201).send({ success: true, token: token });
+  });
+
+  fastify.post<{
+    Params: VerifyWorldParams;
+    Headers: AuthorizationHeaders;
+    Reply: VerifyWorldResponse | ErrorResponse;
+  }>("/verify/:uuid", async (request, reply) => {
+    if (!request.headers.authorization) {
+      return reply
+        .status(401)
+        .send({ success: false, error: "Unauthenticated" });
+    }
+    const user = await getUserFromToken(
+      request.headers.authorization.substring(7),
+    );
+    if (!user) {
+      return reply
+        .status(401)
+        .send({ success: false, error: "Unauthenticated" });
+    }
+    if (!user.admin) {
+      return reply.status(403).send({ success: false, error: "Unauthorized" });
+    }
+    const world = await getWorldFromUuid(request.params.uuid);
+    if (!world) {
+      return reply
+        .status(400)
+        .send({ success: false, error: "World not found" });
+    }
+    if (world.verified) {
+      return reply
+        .status(400)
+        .send({ success: false, error: "World already verified" });
+    }
+
+    try {
+      await db
+        .update(worlds)
+        .set({ verified: true })
+        .where(eq(worlds.uuid, world.uuid));
+    } catch (err) {
+      if (err instanceof DrizzleQueryError) {
+        return reply
+          .status(500)
+          .send({ success: false, error: `DatabaseError: ${err.cause}` });
+      }
+      return reply
+        .status(500)
+        .send({ success: false, error: `UnknownServerError: ${err}` });
+    }
+    return reply.status(200).send({ success: true, uuid: world.uuid });
+  });
+
+  fastify.get<{
+    Params: GetWorldParams;
+    Headers: AuthorizationHeaders;
+    Reply: GetWorldResponse | GetWorldUnauthorizedResponse | ErrorResponse;
+  }>("/:uuid", async (request, reply) => {
+    const world = await getWorldFromUuid(request.params.uuid);
+    if (!world) {
+      return reply
+        .status(400)
+        .send({ success: false, error: "World not found" });
+    }
+    if (!request.headers.authorization) {
+      return reply.status(200).send({
+        success: true,
+        uuid: world.uuid,
+        name: world.name,
+        balance: world.balance,
+      });
+    }
+    const user = await getUserFromToken(
+      request.headers.authorization.substring(7),
+    );
+    if (world.owner != user.uuid) {
+      return reply.status(403).send({ success: false, error: "Unauthorized" });
+    }
+    const ownedJobs = await db
+      .select({
+        id: jobs.id,
+        name: jobs.name,
+        token: jobs.token,
+        type: jobs.type,
+        amount: jobs.amount,
+      })
+      .from(jobs)
+      .where(eq(jobs.world, world.uuid));
+    return reply.status(200).send({
+      success: true,
+      uuid: world.uuid,
+      name: world.name,
+      token: world.token,
+      balance: world.balance,
+      jobs: ownedJobs,
+    });
   });
 }
