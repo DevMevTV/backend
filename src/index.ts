@@ -8,9 +8,12 @@ import { drizzle } from "drizzle-orm/node-postgres";
 export const db = drizzle(process.env.DATABASE_URL!);
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import cors from "@fastify/cors";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+server.register(cors, { origin: "*" });
 
 server.register(autoload, {
   dir: path.join(__dirname, "routes"),
