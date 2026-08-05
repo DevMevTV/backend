@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify";
 import { db } from "../../index.js";
 import { transactions, users, worlds } from "../../db/schema.js";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import {
   AuthorizationHeaders,
   ErrorResponse,
@@ -33,6 +33,7 @@ type GetUserUnauthorizedResponse = {
   uuid: string;
   name: string;
   balance: number;
+  admin: boolean;
 };
 
 type GetUserResponse = {
@@ -40,6 +41,7 @@ type GetUserResponse = {
   uuid: string;
   name: string;
   balance: number;
+  admin: boolean;
   worlds: World[];
   transactions: Transaction[];
 };
@@ -143,6 +145,7 @@ export default async function (
         uuid: user.uuid,
         name: user.name,
         balance: user.balance,
+        admin: user.admin,
       });
     }
     if (user.token != request.headers.authorization.substring(7)) {
@@ -161,7 +164,7 @@ export default async function (
       .select()
       .from(transactions)
       .where(
-        and(
+        or(
           eq(transactions.fromId, user.uuid),
           eq(transactions.toId, user.uuid),
         ),
@@ -171,8 +174,9 @@ export default async function (
       uuid: user.uuid,
       name: user.name,
       balance: user.balance,
+      admin: user.admin,
       worlds: ownedWorlds,
-      transactions: involvedTransactions
+      transactions: involvedTransactions,
     });
   });
 }
