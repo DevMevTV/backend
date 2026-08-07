@@ -9,6 +9,26 @@ export const db = drizzle(process.env.DATABASE_URL!);
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import cors from "@fastify/cors";
+import { transactions } from "./db/schema.js";
+import { and, eq, lt } from "drizzle-orm";
+
+let CHECKING_INTERVAL;
+let TTL_BEFORE_REJECT = 30000;
+
+CHECKING_INTERVAL = setInterval(() => {
+  void rejectOldTransactions();
+}, TTL_BEFORE_REJECT);
+
+async function rejectOldTransactions() {
+  const cutoff = new Date(Date.now() - TTL_BEFORE_REJECT);
+
+  await db
+    .update(transactions)
+    .set({ status: "rejected" })
+    .where(
+      and(eq(transactions.status, "waiting"), lt(transactions.time, cutoff)),
+    );
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
