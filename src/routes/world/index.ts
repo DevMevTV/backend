@@ -188,6 +188,7 @@ export default async function (
       success: true,
       uuid: world.uuid,
       name: world.name,
+      verified: world.verified,
       token: world.token,
       balance: world.balance,
       jobs: ownedJobs,
