@@ -5,10 +5,12 @@ import { DrizzleQueryError, eq } from "drizzle-orm";
 import {
   AuthorizationHeaders,
   ErrorResponse,
+  generateToken,
   getJobFromId,
   getTransactionFromId,
   getUserFromToken,
   getUserFromUuid,
+  getUsernameFromUuid,
   getWorldFromToken,
   getWorldFromUuid,
 } from "../../util.js";
@@ -63,19 +65,18 @@ export default async function (
     const user = await getUserFromUuid(userUuid);
     const job = await getJobFromId(jobId);
     if (!user) {
-      return reply
-        .status(400)
-        .send({ success: false, error: "User not found" });
+      const token = generateToken();
+      const name = await getUsernameFromUuid(userUuid);
+      await db.insert(users).values({
+        uuid: userUuid,
+        name: name,
+        token: token,
+      });
     }
     if (!world) {
       return reply
         .status(400)
         .send({ success: false, error: `World not found` });
-    }
-    if (world.owner != user.uuid) {
-      return reply
-        .status(400)
-        .send({ success: false, error: `User does not own world` });
     }
     if (!world.verified) {
       return reply

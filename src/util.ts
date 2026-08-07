@@ -45,6 +45,14 @@ export async function getTransactionFromId(id: number) {
   return transaction;
 }
 
+export async function getUsernameFromUuid(uuid: string) {
+  const body = await (
+    await fetch(
+      `https://api.minecraftservices.com/minecraft/profile/lookup/${uuid}`,
+    )
+  ).json();
+  return body.name;
+}
 export type AuthorizationHeaders = {
   Authorization: `Bearer ${string}`;
 };
@@ -52,4 +60,4 @@ export type AuthorizationHeaders = {
 export type ErrorResponse = {
   success: false;
   error: string;
-}
+};
