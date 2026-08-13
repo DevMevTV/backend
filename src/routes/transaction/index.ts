@@ -5,6 +5,7 @@ import { DrizzleQueryError, eq } from "drizzle-orm";
 import {
   AuthorizationHeaders,
   ErrorResponse,
+  executeTransaction,
   generateToken,
   getJobFromId,
   getTransactionFromId,
@@ -32,7 +33,7 @@ type VerifyTransactionParams = {
   id: number;
 };
 
-type VerifyTransactionResponse = {
+export type VerifyTransactionResponse = {
   success: true;
   id: number;
 };
@@ -135,7 +136,24 @@ export default async function (
           amount: job.amount,
           status: status,
         })
-        .returning({ id: transactions.id });
+        .returning();
+      // auto accept incoming transactions aka lc rewards
+      if (fromType == "world" && transaction.status == "waiting") {
+        const world = await getWorldFromUuid(fromId);
+        const user = await getUserFromUuid(toId);
+        const status = await executeTransaction(
+          worlds,
+          users,
+          job,
+          transaction,
+          world,
+          user,
+        );
+        if (!status.success) {
+          return reply.status(400).send(status);
+        }
+        return reply.status(201).send({ success: true, id: transaction.id });
+      }
       return reply.status(201).send({ success: true, id: transaction.id });
     } catch (err) {
       if (err instanceof DrizzleQueryError) {
@@ -223,37 +241,20 @@ export default async function (
       return reply.status(401).send({ success: false, error: `Unauthorized` });
     }
 
-    const fromBalance = from.balance - job.amount;
-    const toBalance = to.balance + job.amount;
-    if (fromBalance < 0) {
-      await db
-        .update(transactions)
-        .set({ status: "rejected" })
-        .where(eq(transactions.id, transaction.id));
-      return reply
-        .status(400)
-        .send({ success: false, error: "Not enough balance in sender" });
-    }
-
     const fromTable = transaction.fromType == "world" ? worlds : users;
     const toTable = transaction.toType == "world" ? worlds : users;
     try {
-      await db.transaction(async (tx) => {
-        await tx
-          .update(fromTable)
-          .set({ balance: fromBalance })
-          .where(eq(fromTable.uuid, from.uuid));
-
-        await tx
-          .update(toTable)
-          .set({ balance: toBalance })
-          .where(eq(toTable.uuid, to.uuid));
-
-        await tx
-          .update(transactions)
-          .set({ status: "approved" })
-          .where(eq(transactions.id, transaction.id));
-      });
+      const status = await executeTransaction(
+        fromTable,
+        toTable,
+        job,
+        transaction,
+        from,
+        to,
+      );
+      if (!status.success) {
+        return reply.status(400).send(status);
+      }
       return reply.status(201).send({ success: true, id: transaction.id });
     } catch (err) {
       if (err instanceof DrizzleQueryError) {
