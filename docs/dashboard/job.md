@@ -32,3 +32,28 @@ buy - payout WLC from world account to user
   "token": ""
 }
 ```
+
+## PATCH /job/update
+
+### headers
+
+user authorization header
+
+### body
+
+```json
+{
+  "id": "",
+  "amount": 1,
+  "world_token": ""
+}
+```
+
+### response
+
+```json
+{
+  "success": true,
+  "token": ""
+}
+```
