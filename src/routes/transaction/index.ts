@@ -106,7 +106,8 @@ export default async function (
 
     switch (job.type) {
       case "buy": {
-        if (world.balance < job.amount) status = "rejected";
+        // worlds can reward infinite WWLC
+        //if (world.balance < job.amount) status = "rejected";
         fromType = "world";
         fromId = world.uuid;
 

@@ -70,9 +70,10 @@ export async function executeTransaction(
     | Awaited<ReturnType<typeof getUserFromUuid>>
     | Awaited<ReturnType<typeof getWorldFromUuid>>,
 ): Promise<VerifyTransactionResponse | ErrorResponse> {
+  const senderUser = fromTable === users;
   const newFromBalance = from.balance - job.amount;
   const newToBalance = to.balance + job.amount;
-  if (newFromBalance < 0) {
+  if (senderUser && newFromBalance < 0) {
     await db
       .update(transactions)
       .set({ status: "rejected" })
@@ -81,10 +82,12 @@ export async function executeTransaction(
   }
 
   await db.transaction(async (tx) => {
-    await tx
-      .update(fromTable)
-      .set({ balance: newFromBalance })
-      .where(eq(fromTable.uuid, from.uuid));
+    if (senderUser) {
+      await tx
+        .update(fromTable)
+        .set({ balance: newFromBalance })
+        .where(eq(fromTable.uuid, from.uuid));
+    }
 
     await tx
       .update(toTable)
